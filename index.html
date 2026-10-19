@@ -459,7 +459,7 @@ function renderStatic(){
           <div>
             <h3>${it.nombre} ${it.tag ? `<span class="tag">${it.tag}</span>` : ""}</h3>
             ${it.desc ? `<p class="desc">${it.desc}</p>` : ""}
-            <div class="price">${clp(it.precio)}</div>
+            <div class="price" id="pr-${it.id}">${clp(it.precio)}</div>
             ${it.rolls ? `<button type="button" class="mixbtn" data-mix="${it.id}" aria-expanded="false">Personalizar rolls</button>` : ""}
           </div>
           <div class="stepper">
@@ -473,8 +473,13 @@ function renderStatic(){
 
   $("menu").addEventListener("click", e => {
     const b = e.target.closest("button[data-id]"); if(!b) return;
-    const it = byId[b.dataset.id];
-    setQty(it.id, Number(b.dataset.d), { nombre: it.nombre + (it.tag ? " " + it.tag : ""), detalle:"", precio: it.precio });
+    const it = byId[b.dataset.id], d = Number(b.dataset.d);
+    if(it.rolls){
+      if(d > 0) addMix(it);
+      else { const l = [...cart].reverse().find(x => x.itemId === it.id); if(l) setQty(l.key, -1); }
+      return;
+    }
+    setQty(it.id, d, { nombre: it.nombre + (it.tag ? " " + it.tag : ""), detalle:"", precio: it.precio, itemId: it.id });
   });
 
   // Builder
@@ -501,7 +506,7 @@ function renderStatic(){
   const ENVS = ["Panko","Palta","Sésamo","Queso","Nori","Salmón"];
   const PR = { prot:1000, salmon:2000, env:1000, ceb:1000 };   // precios de los cambios
   const rollTxt = r => `env. ${r.e.toLowerCase()}: ${[r.p, ...r.r].join(", ").toLowerCase()}`;
-  const mixPanel = it => it.rolls.map((r,i) => `
+  const mixPanel = it => `<p class="sec-note" style="margin:0 0 10px">Elige los cambios y toca <strong>+</strong> para agregarlo al pedido.</p>` + it.rolls.map((r,i) => `
     <div class="mroll">
       <p><strong>Roll ${i+1}</strong> · ${rollTxt(r)}</p>
       <div class="mgrid">
@@ -525,6 +530,24 @@ function renderStatic(){
     });
     return { extra, cambios };
   };
+  const refreshMix = it => {
+    const p = $("mp-" + it.id), st = mixState(it, p);
+    p.querySelector(".mtotal").textContent = clp(it.precio + st.extra);
+    $("pr-" + it.id).textContent = st.extra ? `${clp(it.precio + st.extra)} con tus cambios` : clp(it.precio);
+  };
+  const addMix = it => {
+    const p = $("mp-" + it.id);
+    const st = (p.innerHTML && !p.hidden) ? mixState(it, p) : { extra:0, cambios:[] };
+    if(!st.cambios.length){ setQty(it.id, 1, { nombre: it.nombre, detalle:"", precio: it.precio, itemId: it.id }); return; }
+    const detalle = st.cambios.join("; ");
+    setQty("mix|" + it.id + "|" + detalle, 1, { nombre: it.nombre + " personalizado", detalle, precio: it.precio + st.extra, itemId: it.id });
+    p.querySelectorAll("select").forEach(s => s.value = "");
+    p.querySelectorAll("input").forEach(c => c.checked = false);
+    refreshMix(it);
+    const msg = p.querySelector(".bmsg");
+    msg.classList.remove("err");
+    msg.textContent = "Mix con tus cambios agregado al pedido. Puedes armar otro distinto.";
+  };
   $("menu").addEventListener("click", e => {
     const t = e.target.closest(".mixbtn");
     if(t){
@@ -533,24 +556,20 @@ function renderStatic(){
       p.hidden = !p.hidden;
       t.textContent = p.hidden ? "Personalizar rolls" : "Cerrar personalización";
       t.setAttribute("aria-expanded", String(!p.hidden));
+      if(p.hidden) $("pr-" + it.id).textContent = clp(it.precio); else refreshMix(it);
       return;
     }
     const a = e.target.closest("[data-mixadd]");
     if(a){
-      const it = byId[a.dataset.mixadd], p = $("mp-" + it.id), st = mixState(it, p), msg = p.querySelector(".bmsg");
-      if(!st.cambios.length){ msg.textContent = "Elige al menos un cambio, o agrega el Mix normal con el botón +."; msg.classList.add("err"); return; }
-      const detalle = st.cambios.join("; ");
-      setQty("mix|" + it.id + "|" + detalle, 1, { nombre: it.nombre + " personalizado", detalle, precio: it.precio + st.extra });
-      p.querySelectorAll("select").forEach(s => s.value = "");
-      p.querySelectorAll("input").forEach(c => c.checked = false);
-      p.querySelector(".mtotal").textContent = clp(it.precio);
-      msg.classList.remove("err"); msg.textContent = "Mix personalizado agregado al pedido.";
+      const it = byId[a.dataset.mixadd], p = $("mp-" + it.id), msg = p.querySelector(".bmsg");
+      if(!mixState(it, p).cambios.length){ msg.textContent = "Elige al menos un cambio en algún roll."; msg.classList.add("err"); return; }
+      addMix(it);
     }
   });
   $("menu").addEventListener("change", e => {
     const p = e.target.closest(".mixpanel"); if(!p) return;
-    const it = byId[p.id.slice(3)], st = mixState(it, p), msg = p.querySelector(".bmsg");
-    p.querySelector(".mtotal").textContent = clp(it.precio + st.extra);
+    const it = byId[p.id.slice(3)], msg = p.querySelector(".bmsg");
+    refreshMix(it);
     msg.textContent = ""; msg.classList.remove("err");
   });
 
@@ -572,7 +591,7 @@ const deliveryPending = () => entrega()==="delivery" && CONFIG.costoDelivery == 
 function update(){
   Object.keys(byId).forEach(id => {
     const el = $("q-"+id); if(!el) return;
-    const l = cart.find(x => x.key === id), n = l ? l.q : 0;
+    const n = cart.filter(x => x.key === id || x.itemId === id).reduce((a,x) => a + x.q, 0);
     el.textContent = n || ""; el.previousElementSibling.hidden = !n;
   });
   const t = totals();

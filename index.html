@@ -210,10 +210,11 @@ footer{text-align:center;color:var(--muted);font-size:.85rem;padding:0 20px 100p
     <fieldset>
       <legend>¿Para qué hora quieres tu pedido? <small>(aprox.)</small></legend>
       <div class="choices">
-        <label class="choice"><input type="radio" name="hora" value="asap" checked><span>Lo antes posible<small>apenas esté listo</small></span></label>
-        <label class="choice"><input type="radio" name="hora" value="prog"><span>Elegir hora<small>aproximada</small></span></label>
+        <label class="choice"><input type="radio" name="hora" value="asap" checked><span>Lo antes posible<small>mín. 45 min aprox.</small></span></label>
+        <label class="choice"><input type="radio" name="hora" value="prog"><span>Reservar hora por WhatsApp<small>la coordinamos contigo</small></span></label>
       </div>
-      <label class="field" id="horaField" hidden>Hora aproximada<select id="horaSel"></select></label>
+      <p class="hint" id="horaField" hidden>Te escribiremos por WhatsApp para acordar la hora de tu pedido.</p>
+      <select id="horaSel" hidden aria-hidden="true" tabindex="-1"></select>
     </fieldset>
 
     <label class="field">Nombre<input id="nombre" autocomplete="name" placeholder="Tu nombre"></label>
@@ -505,7 +506,7 @@ function renderStatic(){
       <p><strong>Roll ${i+1}</strong> · ${rollTxt(r)}</p>
       <div class="mgrid">
         <label>Proteína<select data-r="${i}" data-k="p"><option value="">Sin cambio</option>${PROTS.filter(x => x !== r.p).map(x => `<option value="${x}">${x} (+${clp(x === "Salmón" ? PR.salmon : PR.prot)})</option>`).join("")}</select></label>
-        <label>Envoltura<select data-r="${i}" data-k="e"><option value="">Sin cambio</option>${ENVS.filter(x => x !== r.e).map(x => `<option value="${x}">${x} (+${clp(PR.env)})</option>`).join("")}</select></label>
+        <label>Envoltura<select data-r="${i}" data-k="e"><option value="">Sin cambio</option>${ENVS.filter(x => x !== r.e).map(x => `<option value="${x}">${x} (+${clp(x === "Salmón" ? PR.salmon : PR.env)})</option>`).join("")}</select></label>
       </div>
       ${r.r.includes("Cebollín") ? `<label class="chk"><input type="checkbox" data-r="${i}" data-k="c"> Cebollín por palta (+${clp(PR.ceb)})</label>` : ""}
     </div>`).join("") +
@@ -518,7 +519,7 @@ function renderStatic(){
       const cb = p.querySelector(`[data-r="${i}"][data-k="c"]`);
       const parts = [];
       if(pv){ extra += pv === "Salmón" ? PR.salmon : PR.prot; parts.push(`${r.p.toLowerCase()} por ${pv.toLowerCase()}`); }
-      if(ev){ extra += PR.env; parts.push(`env. ${r.e.toLowerCase()} por ${ev.toLowerCase()}`); }
+      if(ev){ extra += ev === "Salmón" ? PR.salmon : PR.env; parts.push(`env. ${r.e.toLowerCase()} por ${ev.toLowerCase()}`); }
       if(cb && cb.checked){ extra += PR.ceb; parts.push("cebollín por palta"); }
       if(parts.length) cambios.push(`Roll ${i+1} (${r.e} ${r.p}): ${parts.join(", ")}`);
     });
@@ -635,7 +636,6 @@ function validate(){
   if(!$("nombre").value.trim()) return "Escribe tu nombre.";
   if(entrega()==="delivery" && !$("direccion").value.trim()) return "Escribe la dirección de entrega.";
   if(entrega()==="delivery" && !CONFIG.deliveryDisponible) return "El delivery no está disponible. Elige retiro.";
-  if(horaModo()==="prog" && !$("horaSel").value) return "No quedan horarios para hoy. Elige Lo antes posible o escríbenos.";
   if(!pago()) return "Elige cómo vas a pagar.";
   const v = Number($("vuelto").value.replace(/\D/g,""));
   if(pago()==="efectivo" && v && v < totals().total) return "El monto en efectivo es menor que el total del pedido.";
@@ -660,7 +660,7 @@ $("copyBank").addEventListener("click", async () => {
 });
 
 function horaModo(){ const h = document.querySelector('input[name="hora"]:checked'); return h ? h.value : "asap"; }
-function horaTexto(){ return horaModo()==="prog" && $("horaSel").value ? `${$("horaSel").value} hrs` : "Lo antes posible"; }
+function horaTexto(){ return horaModo()==="prog" ? "Quiero reservar una hora (coordinar por WhatsApp)" : "Lo antes posible (mín. 45 min aprox.)"; }
 function fillSlots(){
   const sel = $("horaSel"), prev = sel.value;
   const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60 + m; };

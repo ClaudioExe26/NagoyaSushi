@@ -90,6 +90,17 @@ button,input,textarea{font:inherit;color:inherit}
 .btn{border:0;border-radius:10px;background:var(--blue);color:var(--blue-ink);font-weight:700;padding:10px 18px;cursor:pointer}
 .bmsg{font-size:.9rem;font-weight:600;margin:8px 0 0;min-height:1.2em;color:var(--price)}
 .bmsg.err{color:var(--warn)}
+.mixbtn{margin-top:8px;border:1.5px solid var(--blue);background:transparent;color:var(--ink);border-radius:999px;padding:7px 14px;font-weight:700;font-size:.88rem;cursor:pointer}
+.mixpanel{grid-column:1/-1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.mroll{padding:12px 0;border-bottom:1px dashed var(--line)}
+.mroll:first-child{padding-top:0}
+.mroll p{margin:0 0 8px;font-size:.93rem}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mgrid label{font-size:.82rem;font-weight:600;color:var(--muted)}
+.mgrid select{display:block;width:100%;margin-top:3px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:16px}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:.92rem;font-weight:600}
+.chk input{width:22px;height:22px;accent-color:var(--blue)}
+@media (max-width:420px){.mgrid{grid-template-columns:1fr}}
 
 /* Checkout */
 .checkout{position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);align-self:start;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;max-height:calc(100vh - 90px);overflow:auto}
@@ -208,14 +219,16 @@ footer{text-align:center;color:var(--muted);font-size:.85rem;padding:0 20px 100p
     <label class="field">Nombre<input id="nombre" autocomplete="name" placeholder="Tu nombre"></label>
     <label class="field">Teléfono<input id="telefono" type="tel" autocomplete="tel" placeholder="+56 9 1234 5678"></label>
     <label class="field" id="dirField">Dirección<input id="direccion" autocomplete="street-address" placeholder="Calle, número, depto o referencia"></label>
-    <label class="field">Comentarios<textarea id="comentarios" placeholder="Cambios en el Mix, sin cebollín, palillos extra…"></textarea></label>
+    <label class="field">Comentarios<textarea id="comentarios" placeholder="Sin sésamo, palillos extra, salsas…"></textarea></label>
 
     <fieldset>
       <legend>¿Cómo pagas?</legend>
       <div class="choices">
         <label class="choice"><input type="radio" name="pago" value="transferencia"><span>Transferencia<small>antes del envío</small></span></label>
-        <label class="choice"><input type="radio" name="pago" value="debito"><span>Débito<small id="debitoLabel">al recibir</small></span></label>
+        <label class="choice" id="optLocal"><input type="radio" name="pago" value="local"><span>Pagar al retirar<small>en el local</small></span></label>
+        <label class="choice" id="optEfectivo"><input type="radio" name="pago" value="efectivo"><span>Efectivo<small>al recibir</small></span></label>
       </div>
+      <div class="alert ck-alert" id="payAlert" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg><div><strong>Pago con delivery</strong><span>Para delivery solo se puede pagar con transferencia o efectivo.</span></div></div>
     </fieldset>
 
     <div class="bank" id="bank" hidden>
@@ -224,6 +237,7 @@ footer{text-align:center;color:var(--muted);font-size:.85rem;padding:0 20px 100p
       <p class="hint" style="margin-top:8px">Estos datos también van en tu mensaje. Envía el comprobante por el mismo chat.</p>
     </div>
     <p class="hint" id="debitoHint" hidden></p>
+    <label class="field" id="vueltoField" hidden>¿Con cuánto pagas? <small>(para llevar vuelto, opcional)</small><input id="vuelto" inputmode="numeric" placeholder="Ej: 20000"></label>
 
     <p class="error" id="error" role="alert"></p>
     <a class="send" id="send" href="#" target="_blank" rel="noopener">
@@ -246,7 +260,7 @@ const CONFIG = {
   whatsappVisible: "+569 6566 8825",
   instagram: "nagoyasushi.sf",
   direccion: "M. Rodríguez #349",
-  costoDelivery: null,                // número (ej. 2000) o null = "a confirmar"
+  costoDelivery: 2500,                // número (ej. 2000) o null = "a confirmar"
   deliveryDisponible: true,           // false = muestra la alerta y solo permite retiro
   mensajeDeliveryNoDisponible: "Por ahora solo retiro en el local, en M. Rodríguez #349.",
   horaApertura: "18:00",              // rango de horas que se ofrecen al cliente
@@ -260,15 +274,11 @@ const CONFIG = {
     "N° de cuenta": "95589537"
   },
   menu: [
-    { categoria:"Mix Nagoya", nota:"Para compartir. Cambios: proteína $1.000 (no válido por salmón), por salmón $2.000, envoltura $1.000, cebollín por palta $1.000.", items:[
-      { id:"mx20", nombre:"Mix 20 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. panko: camarón, queso, cebollín", precio:6990 },
-      { id:"mx30", nombre:"Mix 30 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín", precio:10990 },
-      { id:"mx40", nombre:"Mix 40 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín · 10 env. panko: salmón, queso, cebollín", precio:13990 },
-      { id:"mx60", nombre:"Mix 60 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. queso: camarón, queso, cebollín · 10 env. nori: palmito, queso, palta · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín · 10 env. panko: salmón, queso, cebollín", precio:22990 },
-      { id:"mod1", nombre:"Cambio de proteína", tag:"(no válido por salmón)", desc:"Indica el cambio en comentarios.", precio:1000 },
-      { id:"mod2", nombre:"Cambio por salmón", desc:"Indica el cambio en comentarios.", precio:2000 },
-      { id:"mod3", nombre:"Cambio de envoltura", desc:"Indica el cambio en comentarios.", precio:1000 },
-      { id:"mod4", nombre:"Cambiar cebollín por palta", desc:"Indica en qué roll en comentarios.", precio:1000 }
+    { categoria:"Mix Nagoya", nota:"Para compartir, rolls de 10 piezas. Toca Personalizar rolls para cambiar la proteína, la envoltura o el cebollín por palta en un roll específico.", items:[
+      { id:"mx20", rolls:[{e:"Palta",p:"Pollo",r:["Queso","Cebollín"]},{e:"Panko",p:"Camarón",r:["Queso","Cebollín"]}], nombre:"Mix 20 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. panko: camarón, queso, cebollín", precio:6990 },
+      { id:"mx30", rolls:[{e:"Palta",p:"Pollo",r:["Queso","Cebollín"]},{e:"Sésamo",p:"Kanikama",r:["Queso","Palta"]},{e:"Panko",p:"Camarón",r:["Queso","Cebollín"]}], nombre:"Mix 30 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín", precio:10990 },
+      { id:"mx40", rolls:[{e:"Palta",p:"Pollo",r:["Queso","Cebollín"]},{e:"Sésamo",p:"Kanikama",r:["Queso","Palta"]},{e:"Panko",p:"Camarón",r:["Queso","Cebollín"]},{e:"Panko",p:"Salmón",r:["Queso","Cebollín"]}], nombre:"Mix 40 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín · 10 env. panko: salmón, queso, cebollín", precio:13990 },
+      { id:"mx60", rolls:[{e:"Palta",p:"Pollo",r:["Queso","Cebollín"]},{e:"Queso",p:"Camarón",r:["Queso","Cebollín"]},{e:"Nori",p:"Palmito",r:["Queso","Palta"]},{e:"Sésamo",p:"Kanikama",r:["Queso","Palta"]},{e:"Panko",p:"Camarón",r:["Queso","Cebollín"]},{e:"Panko",p:"Salmón",r:["Queso","Cebollín"]}], nombre:"Mix 60 piezas", desc:"10 env. palta: pollo, queso, cebollín · 10 env. queso: camarón, queso, cebollín · 10 env. nori: palmito, queso, palta · 10 env. sésamo: kanikama, queso, palta · 10 env. panko: camarón, queso, cebollín · 10 env. panko: salmón, queso, cebollín", precio:22990 },
     ]},
     { categoria:"Nagoya Rolls", nota:"8 cortes", items:[
       { id:"ng1", nombre:"Ryu", desc:"Env. nori con topping de salmón spicy. Camarón furay, queso, palta.", precio:8290 },
@@ -449,12 +459,14 @@ function renderStatic(){
             <h3>${it.nombre} ${it.tag ? `<span class="tag">${it.tag}</span>` : ""}</h3>
             ${it.desc ? `<p class="desc">${it.desc}</p>` : ""}
             <div class="price">${clp(it.precio)}</div>
+            ${it.rolls ? `<button type="button" class="mixbtn" data-mix="${it.id}" aria-expanded="false">Personalizar rolls</button>` : ""}
           </div>
           <div class="stepper">
             <button type="button" data-id="${it.id}" data-d="-1" aria-label="Quitar ${it.nombre}" hidden>−</button>
             <span class="qty" id="q-${it.id}" aria-live="polite"></span>
             <button type="button" class="add" data-id="${it.id}" data-d="1" aria-label="Agregar ${it.nombre}">+</button>
           </div>
+          ${it.rolls ? `<div class="mixpanel" id="mp-${it.id}" hidden></div>` : ""}
         </li>`).join("")}</ul>`}
     </section>`).join("");
 
@@ -484,6 +496,63 @@ function renderStatic(){
     m.classList.remove("err"); m.textContent = "Agregado: " + detalle;
   });
 
+  const PROTS = ["Pollo","Kanikama","Palmito","Champiñón","Camarón","Salmón"];
+  const ENVS = ["Panko","Palta","Sésamo","Queso","Nori","Salmón"];
+  const PR = { prot:1000, salmon:2000, env:1000, ceb:1000 };   // precios de los cambios
+  const rollTxt = r => `env. ${r.e.toLowerCase()}: ${[r.p, ...r.r].join(", ").toLowerCase()}`;
+  const mixPanel = it => it.rolls.map((r,i) => `
+    <div class="mroll">
+      <p><strong>Roll ${i+1}</strong> · ${rollTxt(r)}</p>
+      <div class="mgrid">
+        <label>Proteína<select data-r="${i}" data-k="p"><option value="">Sin cambio</option>${PROTS.filter(x => x !== r.p).map(x => `<option value="${x}">${x} (+${clp(x === "Salmón" ? PR.salmon : PR.prot)})</option>`).join("")}</select></label>
+        <label>Envoltura<select data-r="${i}" data-k="e"><option value="">Sin cambio</option>${ENVS.filter(x => x !== r.e).map(x => `<option value="${x}">${x} (+${clp(PR.env)})</option>`).join("")}</select></label>
+      </div>
+      ${r.r.includes("Cebollín") ? `<label class="chk"><input type="checkbox" data-r="${i}" data-k="c"> Cebollín por palta (+${clp(PR.ceb)})</label>` : ""}
+    </div>`).join("") +
+    `<div class="builder-foot"><strong class="mtotal">${clp(it.precio)}</strong><button type="button" class="btn" data-mixadd="${it.id}">Agregar Mix personalizado</button></div><p class="bmsg" role="status"></p>`;
+  const mixState = (it, p) => {
+    let extra = 0; const cambios = [];
+    it.rolls.forEach((r,i) => {
+      const pv = p.querySelector(`[data-r="${i}"][data-k="p"]`).value;
+      const ev = p.querySelector(`[data-r="${i}"][data-k="e"]`).value;
+      const cb = p.querySelector(`[data-r="${i}"][data-k="c"]`);
+      const parts = [];
+      if(pv){ extra += pv === "Salmón" ? PR.salmon : PR.prot; parts.push(`${r.p.toLowerCase()} por ${pv.toLowerCase()}`); }
+      if(ev){ extra += PR.env; parts.push(`env. ${r.e.toLowerCase()} por ${ev.toLowerCase()}`); }
+      if(cb && cb.checked){ extra += PR.ceb; parts.push("cebollín por palta"); }
+      if(parts.length) cambios.push(`Roll ${i+1} (${r.e} ${r.p}): ${parts.join(", ")}`);
+    });
+    return { extra, cambios };
+  };
+  $("menu").addEventListener("click", e => {
+    const t = e.target.closest(".mixbtn");
+    if(t){
+      const it = byId[t.dataset.mix], p = $("mp-" + it.id);
+      if(!p.innerHTML) p.innerHTML = mixPanel(it);
+      p.hidden = !p.hidden;
+      t.textContent = p.hidden ? "Personalizar rolls" : "Cerrar personalización";
+      t.setAttribute("aria-expanded", String(!p.hidden));
+      return;
+    }
+    const a = e.target.closest("[data-mixadd]");
+    if(a){
+      const it = byId[a.dataset.mixadd], p = $("mp-" + it.id), st = mixState(it, p), msg = p.querySelector(".bmsg");
+      if(!st.cambios.length){ msg.textContent = "Elige al menos un cambio, o agrega el Mix normal con el botón +."; msg.classList.add("err"); return; }
+      const detalle = st.cambios.join("; ");
+      setQty("mix|" + it.id + "|" + detalle, 1, { nombre: it.nombre + " personalizado", detalle, precio: it.precio + st.extra });
+      p.querySelectorAll("select").forEach(s => s.value = "");
+      p.querySelectorAll("input").forEach(c => c.checked = false);
+      p.querySelector(".mtotal").textContent = clp(it.precio);
+      msg.classList.remove("err"); msg.textContent = "Mix personalizado agregado al pedido.";
+    }
+  });
+  $("menu").addEventListener("change", e => {
+    const p = e.target.closest(".mixpanel"); if(!p) return;
+    const it = byId[p.id.slice(3)], st = mixState(it, p), msg = p.querySelector(".bmsg");
+    p.querySelector(".mtotal").textContent = clp(it.precio + st.extra);
+    msg.textContent = ""; msg.classList.remove("err");
+  });
+
   $("cart").addEventListener("click", e => {
     const b = e.target.closest("button[data-key]"); if(!b) return;
     setQty(b.dataset.key, Number(b.dataset.d));
@@ -507,7 +576,7 @@ function update(){
   });
   const t = totals();
   $("cart").innerHTML = cart.length
-    ? cart.map(l => `<li><span>${l.q} × ${esc(l.nombre)}${l.detalle ? `<small>${esc(l.detalle)}</small>` : ""}</span><span>${clp(l.q*l.precio)}</span><span class="qbtns"><button class="rm" type="button" data-key="${esc(l.key)}" data-d="-1" aria-label="Quitar uno de ${esc(l.nombre)}">−</button><button class="rm" type="button" data-key="${esc(l.key)}" data-d="1" aria-label="Agregar otro ${esc(l.nombre)}">+</button></span></li>`).join("")
+    ? cart.map(l => `<li><span>${l.q} × ${esc(l.nombre)}${l.detalle ? `<small>${esc(l.detalle).split("; ").join("<br>")}</small>` : ""}</span><span>${clp(l.q*l.precio)}</span><span class="qbtns"><button class="rm" type="button" data-key="${esc(l.key)}" data-d="-1" aria-label="Quitar uno de ${esc(l.nombre)}">−</button><button class="rm" type="button" data-key="${esc(l.key)}" data-d="1" aria-label="Agregar otro ${esc(l.nombre)}">+</button></span></li>`).join("")
     : `<li class="empty">Agrega productos con el botón +</li>`;
   $("subtotal").textContent = clp(t.subtotal);
   $("deliveryRow").hidden = entrega() !== "delivery";
@@ -515,11 +584,16 @@ function update(){
   $("total").textContent = clp(t.total) + (deliveryPending() ? " + delivery" : "");
   $("dirField").hidden = entrega() !== "delivery";
   $("horaField").hidden = horaModo() !== "prog";
-  $("debitoLabel").textContent = entrega()==="delivery" ? "al recibir" : "en el local";
+  const isDel = entrega()==="delivery";
+  $("optLocal").hidden = isDel; $("optEfectivo").hidden = !isDel;
+  $("payAlert").hidden = !isDel;
+  const chk = document.querySelector('input[name="pago"]:checked');
+  if(chk && ((isDel && chk.value==="local") || (!isDel && chk.value==="efectivo"))) chk.checked = false;
   const p = pago();
   $("bank").hidden = p !== "transferencia";
-  $("debitoHint").hidden = p !== "debito";
-  $("debitoHint").textContent = entrega()==="delivery" ? "El repartidor llevará la máquina para pagar con débito al entregar." : "Pagas con débito cuando retires en el local.";
+  $("debitoHint").hidden = !(p === "local" || p === "efectivo");
+  $("debitoHint").textContent = p === "efectivo" ? "Pagas en efectivo al recibir tu pedido." : "Pagas cuando retires tu pedido en el local.";
+  $("vueltoField").hidden = p !== "efectivo";
   $("bar").classList.toggle("show", t.count > 0 && !ckVisible);
   $("barCount").textContent = `Ver pedido (${t.count})`;
   $("barTotal").textContent = clp(t.total);
@@ -535,7 +609,7 @@ function buildMessage(){
   else L.push(`🏪 *Entrega:* Retiro en ${CONFIG.direccion}`);
   L.push(`⏰ *Hora aprox.:* ${horaTexto()}`);
   L.push("", "*Detalle:*");
-  cart.forEach(l => { L.push(`• ${l.q} x ${l.nombre} - ${clp(l.q*l.precio)}`); if(l.detalle) L.push(`   ${l.detalle}`); });
+  cart.forEach(l => { L.push(`• ${l.q} x ${l.nombre} - ${clp(l.q*l.precio)}`); if(l.detalle) l.detalle.split("; ").forEach(d => L.push(`   ↳ ${d}`)); });
   L.push("", `Subtotal: ${clp(t.subtotal)}`);
   if(entrega()==="delivery") L.push(deliveryPending() ? "Delivery: a confirmar" : `Delivery: ${clp(t.deliv)}`);
   L.push(`*Total: ${clp(t.total)}${deliveryPending() ? " + delivery" : ""}*`, "");
@@ -544,9 +618,12 @@ function buildMessage(){
     Object.entries(CONFIG.banco).forEach(([k,v]) => L.push(`${k}: ${v}`));
     L.push(deliveryPending() ? "Espero confirmación del total con delivery para transferir." : `Monto: ${clp(t.total)}`);
     L.push("Envío el comprobante por este chat.");
+  } else if(pago()==="efectivo"){
+    L.push("💵 *Pago:* Efectivo al recibir");
+    const v = Number($("vuelto").value.replace(/\D/g,""));
+    if(v) L.push(`Pago con ${clp(v)} (vuelto: ${clp(Math.max(0, v - t.total))})`);
   } else {
-    L.push("💳 *Pago:* Tarjeta de DÉBITO");
-    L.push(entrega()==="delivery" ? "⚠️ Por favor que el repartidor lleve la máquina para pagar con débito." : "Pagaré con débito al retirar en el local.");
+    L.push("🏪 *Pago:* Al retirar en el local");
   }
   const com = $("comentarios").value.trim();
   if(com) L.push("", `📝 *Comentarios:* ${com}`);
@@ -560,6 +637,8 @@ function validate(){
   if(entrega()==="delivery" && !CONFIG.deliveryDisponible) return "El delivery no está disponible. Elige retiro.";
   if(horaModo()==="prog" && !$("horaSel").value) return "No quedan horarios para hoy. Elige Lo antes posible o escríbenos.";
   if(!pago()) return "Elige cómo vas a pagar.";
+  const v = Number($("vuelto").value.replace(/\D/g,""));
+  if(pago()==="efectivo" && v && v < totals().total) return "El monto en efectivo es menor que el total del pedido.";
   return "";
 }
 
